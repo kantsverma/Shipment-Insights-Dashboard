@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const ResultTable = ({ data, title }: { data: any[], title: string }) => {
   if (!data || data.length === 0) return null;
