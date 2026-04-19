@@ -43,7 +43,7 @@ function App() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-slate-800 uppercase italic">
-              SHIPMENT <span className="text-blue-600">AI</span>
+              SHIPMENT INSIGHT <span className="text-blue-600">AI DASHBOARD</span>
             </h1>
             <p className="text-slate-500 font-medium">Logistics Intelligence Dashboard</p>
           </div>
