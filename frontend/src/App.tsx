@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CSVUploader } from './components/CSVUploader';
 import { ResultTable } from './components/ResultTable';
 import { ResultChart } from './components/ResultChart';
@@ -7,96 +7,117 @@ function App() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 1024);
+
+  // Update layout if window resizes
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth > 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
-  const API_URL = import.meta.env.VITE_API_URL;  
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   const handleQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query) return;
-
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/query?q=${encodeURIComponent(query)}`);      
-      // const res = await fetch(`http://127.0.0.1:8000/query?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`${API_URL}/query?q=${encodeURIComponent(query)}`);
       if (!res.ok) throw new Error("Backend error");
       const data = await res.json();
       setResult(data);
     } catch (err) {
-      alert("Make sure backend is running and CSV uploaded.");
+      console.error(err);
+      alert("Error: Check backend connection.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-6xl">
-
-        {/* Main Card */}
-        <div className="bg-white rounded-[28px] shadow-2xl px-8 md:px-14 py-10">
-
-          {/* Header */}
-          <div className="text-center mb-10">
-            <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight">
-              Shipment Insights Dashboard
+    <div className="min-h-screen bg-slate-50 p-4 md:p-10 font-sans text-slate-900">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-black tracking-tighter text-slate-800 uppercase italic">
+              SHIPMENT <span className="text-blue-600">AI</span>
             </h1>
-            <p className="mt-4 text-lg text-slate-500">
-              Upload shipment data and analyze logistics insights instantly
-            </p>
+            <p className="text-slate-500 font-medium">Logistics Intelligence Dashboard</p>
           </div>
+          <CSVUploader onUploadSuccess={() => setQuery("Show shipment overview")} />
+        </header>
 
-          {/* Upload + Query Row */}
-          <div className="space-y-6">
+        {/* Search Bar */}
+        <form onSubmit={handleQuery} className="relative">
+          <input 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search e.g., 'Carrier performance'..."
+            className="w-full p-6 pr-40 rounded-3xl border-none shadow-xl text-lg outline-none focus:ring-4 focus:ring-blue-100"
+          />
+          <button 
+            type="submit" 
+            className="absolute right-3 top-3 bottom-3 bg-slate-900 text-white px-10 rounded-2xl font-bold hover:bg-blue-600 transition-colors"
+          >
+            {loading ? "..." : "Analyze"}
+          </button>
+        </form>
 
-            {/* Upload */}
-            <div className="flex justify-center">
-              <div className="w-full md:w-[340px]">
-                <CSVUploader onUploadSuccess={() => setQuery("")} />
-              </div>
+        <div className="min-h-[400px]">
+          {loading && (
+            <div className="flex flex-col items-center justify-center h-64">
+               <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+               <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Processing</p>
             </div>
+          )}
 
-            {/* Query Form */}
-            <form onSubmit={handleQuery} className="flex flex-col md:flex-row gap-4 items-center">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Which routes had the most delays last month?"
-                className="w-full flex-1 px-6 py-5 text-lg rounded-2xl border border-slate-200 shadow-sm focus:ring-4 focus:ring-sky-100 focus:border-sky-400 outline-none"
-              />
+          {!loading && result?.type === 'dashboard' && (
+            <div className="space-y-8">
+              
+              {/* --- THE GRID FIX --- */}
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', 
+                gap: '2rem', 
+                width: '100%' 
+              }}>
+                
+                <div style={{ minWidth: 0 }}>
+                  <ResultChart result={{
+                    chart_type: 'bar',
+                    data: result.chart_data,
+                    x: result.config.x,
+                    y: result.config.y,
+                    title: `Delays by ${result.config.x}`
+                  }} />
+                </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-10 py-5 rounded-2xl bg-sky-400 hover:bg-sky-500 text-white text-lg font-semibold shadow-md hover:shadow-lg transition-all disabled:bg-slate-300"
-              >
-                {loading ? "Analyzing..." : "Analyze"}
-              </button>
-            </form>
-          </div>
-
-          {/* Results */}
-          <div className="mt-10 rounded-3xl bg-slate-50 border border-slate-100 p-6 min-h-[350px] max-h-[60vh] overflow-auto">
-            {loading && (
-              <div className="flex justify-center items-center h-52 text-slate-400 text-lg animate-pulse">
-                Creating shipment insights...
+                <div style={{ minWidth: 0 }}>
+                  <ResultChart result={{
+                    chart_type: 'pie',
+                    data: result.chart_data,
+                    x: result.config.x,
+                    y: result.config.y,
+                    title: "Share of Total Delays"
+                  }} />
+                </div>
               </div>
-            )}
 
-            {!loading && result && (
-              <>
-                {result.type === 'chart' && <ResultChart result={result} />}
-                {result.type === 'table' && (
-                  <ResultTable data={result.data} title={result.title} />
-                )}
-              </>
-            )}
-
-            {!loading && !result && (
-              <div className="flex justify-center items-center h-52 text-slate-400 text-lg">
-                Results will appear here
+              {/* Table Section */}
+              <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/30 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-slate-800">Shipment Audit</h2>
+                </div>
+                <div className="p-2">
+                  <ResultTable data={result.table_data} title="" />
+                </div>
               </div>
-            )}
-          </div>
+
+            </div>
+          )}
         </div>
       </div>
     </div>
